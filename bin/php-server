@@ -17,9 +17,20 @@ if test -t 1; then
   fi
 fi
 
-self=$(basename $0)
+getCWD ()
+{
+  local SOURCE="${BASH_SOURCE[0]}"
+  while [ -h "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink
+    local DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+    SOURCE="$(readlink "$SOURCE")"
+    [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE" # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+  done
+  echo "$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+}
+
+self="$(basename $0)"
 PID_FILE="/tmp/$self.pid"
-BASE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
+BASE_DIR="$(dirname "$(getCWD)")"
 ROUTER_FILE="$BASE_DIR/src/devServerRouter.php"
 
 syntax()
@@ -166,7 +177,6 @@ case "$command" in
     fi
     [ "$log" == "/dev/null" ] && logMsg="${COMMENT}disabled$C" || logMsg="${HILIGHT}$log$C"
     where="$address:$port"
-    echo "php -S $where -t $dir $ROUTER_FILE" $log
     pid=$(runBackgroundCommand "php -S $where -t $dir $ROUTER_FILE" $log)
     echo $pid > $PID_FILE
 
