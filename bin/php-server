@@ -1,0 +1,216 @@
+#!/bin/bash
+
+# check if stdout is a terminal
+if test -t 1; then
+
+  # see if it supports colors
+  ncolors=$(tput colors)
+
+  if test -n "$ncolors" && test $ncolors -ge 2; then
+    HILIGHT='\033[0;32m'
+    COMMENT='\033[0;33m'
+    INFO='\033[0;36m'
+    ERROR='\033[1;31m'
+    B='\033[1;38m'
+    U='\033[4;37m'
+    C='\033[0m' # Clear (no color)
+  fi
+fi
+
+self=$(basename $0)
+PID_FILE="/tmp/$self.pid"
+BASE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
+ROUTER_FILE="$BASE_DIR/src/devServerRouter.php"
+
+syntax()
+{
+  printf "
+${B}SYNTAX$C
+    ${B}$self$C ${U}command$C [${U}options$C]
+    ${B}$self$C [${B}--help$C]
+
+${B}COMMAND$C
+    ${HILIGHT}${B}start$C - Starts the web server.
+
+        ${B}SYNTAX$C
+            ${B}$self start$C [${B}-p$C|${B}--port$C] [${B}-a$C|${B}--address$C] [${B}-l$C|${B}--log$C] [${B}-g$C|${B}--global$C] [${B}-r$C|${B}--root$C]
+
+        ${B}OPTIONS$C
+            ${B}-p, --port     ${C}The TCP/IP port the web server will listen on. $INFO[default: 8000]$C
+            ${B}-a, --address  ${C}The IP address the web server will listen on.  $INFO[default: localhost]$C
+            ${B}-l, --log      ${C}The path of a log file where the server's logging output will be saved. $INFO[default: /dev/null]$C
+            ${B}-g, --global   ${C}If specified, the server will serve all sites under the root web directory.
+            ${B}-r, --root     ${C}The root web directory's name or path. If it's a name, the directory will be searched
+                           for starting at the current directory and going upwards. Alternatively, you may specify the
+                           full path. $INFO[default: Sites]$C
+
+${B}COMMAND$C
+    ${HILIGHT}${B}stop$C - Stops the web server.
+
+        ${B}SYNTAX$C
+            ${B}$self stop$C
+
+${B}COMMAND$C
+    ${HILIGHT}${B}status$C - Checks if the web server is running.
+
+        ${B}SYNTAX$C
+            ${B}$self status$C
+
+"
+  exit 1
+}
+
+error ()
+{
+  echo -e "
+$1
+"
+  exit 1
+}
+
+finish ()
+{
+  echo -e "
+$1
+"
+  exit 0
+}
+
+syntax-error ()
+{
+  echo -e "
+${ERROR}Syntax error!$C"
+  syntax
+}
+
+getPID ()
+{
+  cat $PID_FILE 2>/dev/null
+}
+
+isRunning ()
+{
+  ps "$1" > /dev/null 2>&1
+}
+
+runBackgroundCommand ()
+{
+  nohup $1 >$2 2>&1 & echo $!
+}
+
+command=$1
+shift
+case "$command" in
+
+  "start")
+    port=8000
+    address="localhost"
+    log="/dev/null"
+    global=""
+    rootWasSet=""
+    root="Sites"
+
+    while true; do
+      case "$1" in
+        '')
+          break;
+          ;;
+        --port|-p)
+          shift
+          port=$1
+          ;;
+        --address|-a)
+          shift
+          address=$1
+          ;;
+        --log|-l)
+          shift
+          log=$1
+          ;;
+        --global|-g)
+          global=true
+          ;;
+        --root|-r)
+          shift
+          root=$1
+          rootWasSet=true
+          ;;
+        *)
+          error "Invalid argument ${ERROR}$1$C"
+      esac
+      shift
+    done
+
+    pid=$(getPID)
+    if isRunning $pid; then
+      error "The server is ${ERROR}already running$C"
+    fi
+    dir=$(pwd)
+    if [ -n "$global" ]; then
+      if [ -d "$root" ]; then
+        dir="$root"
+      else
+        while true; do
+          current=$(basename "$dir")
+          [ "$current" == "$root" ] && break
+          dir=$(dirname "$dir")
+          if [ "$dir" == "/" ]; then
+            error "Directory ${ERROR}$root$C was not found"
+          fi
+        done
+      fi
+    else
+      if [ $rootWasSet ]; then
+        error "The ${B}--root$C option can only be used on ${HILIGHT}global$C mode"
+      fi
+    fi
+    [ "$log" == "/dev/null" ] && logMsg="${COMMENT}disabled$C" || logMsg="${HILIGHT}$log$C"
+    where="$address:$port"
+    echo "php -S $where -t $dir $ROUTER_FILE" $log
+    pid=$(runBackgroundCommand "php -S $where -t $dir $ROUTER_FILE" $log)
+    echo $pid > $PID_FILE
+
+    finish "The server is now ${HILIGHT}running$C
+
+Listening at: ${HILIGHT}$where$C
+Publishing:   ${HILIGHT}$dir$C
+Log file:     ${HILIGHT}$logMsg$C"
+    ;;
+
+  "stop")
+    pid=$(getPID)
+    if [ -z "$pid" ]; then
+      error "The server is ${ERROR}already stopped$C"
+    fi
+    kill $pid 2>&1
+    unlink $PID_FILE
+    finish "The web server is now ${HILIGHT}stopped$C"
+    ;;
+
+  "status")
+    pid=$(getPID)
+    if [ -z "$pid" ]; then
+      error "The server is ${ERROR}not running$C"
+    else
+      if isRunning $pid; then
+        finish "The server is ${HILIGHT}running$C
+PID: ${HILIGHT}$pid$C"
+      else
+        unlink $PID_FILE
+        finish "The server ${ERROR}crashed$C"
+      fi
+    fi
+
+    ;;
+
+  "--help"|"")
+  printf "
+${B}NAME$C
+    ${B}$self$C -- an enhanced interface for the PHP's built-in web server
+"
+    syntax
+    ;;
+
+  *)
+    syntax-error
+esac

@@ -1,0 +1,25 @@
+{
+  "name": "php-kit/php-server",
+  "license": "MIT",
+  "description": "An enhanced interface for the PHP's built-in web server",
+  "keywords": [
+    "server",
+    "web server",
+    "built-in"
+  ],
+  "homepage": "https://github.com/php-kit/php-server",
+  "authors": [
+    {
+      "name": "Impactwave",
+      "email": "impactwave@impactwave.com",
+      "homepage": "http://impactwave.com"
+    },
+    {
+      "name": "Cláudio Silva",
+      "email": "claudio.silva@impactwave.com"
+    }
+  ],
+  "bin": [
+    "bin/php-server"
+  ]
+}
