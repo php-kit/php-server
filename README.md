@@ -18,7 +18,7 @@ This command line tool:
 > - it only processes a single request at a time, so it does not scale;
 > - it doesn't send cache headers for static files, so caching by the browser is disabled;
 
-## Usage
+## Installation
 
 #### Runtime requirements
 
@@ -34,7 +34,7 @@ composer global require php-kit/php-server
 
 > Make sure your `$PATH` environment variable includes `~/.composer/bin`, otherwise the terminal won't be able to find executable files that are installed globally by Composer.
 
-#### Usage
+## Usage
 
 Type `php-server` in your terminal, on any directory, to display the list of available commands and their syntax.
 
