@@ -1,12 +1,12 @@
 # PHP-Server
-##### An enhanced interface for PHP's built-in web server
+##### Makes the PHP's built-in web server easier and more practical to use
 
 ## Introduction
 
 ### Why should you use this tool instead of a "real" web server?
 
 Since version 5.4, PHP provides a built-in web server that can be quite useful as a lighweight and dead-easy-to-install **development web server**.
-With it, you do not have to install and configure **Apache**, **nginx** or any other web server on your machine, just to be able to view local static websites or PHP web sites/applications.
+With it, you do not have to install and configure *Apache*, *NGINX* or any other web server on your machine, just to be able to view local static websites or PHP web sites/applications.
 
 With **PHP-Server**, it becomes even more practical and simpler to use. Also, as explained below, it allows you to browse all your local websites at any time, and you can also make it start automatically when you log in to your computer, making it a complete replacement of a "real" web server, suitable enough for most of your PHP development needs. 
 
@@ -15,18 +15,21 @@ With **PHP-Server**, it becomes even more practical and simpler to use. Also, as
 This command line tool:
 
 1. Provides a set of commands to make it easier to control PHP's built-in web server
-2. Extends the server's functionality with a custom router that:
+2. Runs the server on the background (it doesn't block your terminal, you can even close it)
+3. Extends the server's functionality with a custom router that:
     
     1. Auto-generates directory index pages for URLs that match directories having no `index.php` or `index.html` files, allowing you to browse your directory structure in search of sites to open;
      
     2. Supports "virtual URLs" (aka "clean URLs" or "vanity URLs") by automatically redirecting virtual paths to the application's `index.php`, where it can be further routed.
 
-> **WARNING:** do not use this on a production server, as `php-server` lacks many of the advanced functionality and security other web servers provide.
->
-> Some of the (show-stopper) limitations are:
-> - It only processes a single request at a time, so it does not scale;
-> - It doesn't send cache headers for static files, so caching by the browser is disabled;
-> - It has no support for advanced `mod-rewrite` or `.htaccess` configurations (but see the note above about *virtual URLs*).
+### Limitations
+
+Do not use this on a production server, as `php-server` lacks many of the advanced functionality and security other web servers provide.
+
+Some of the (show-stopper) limitations are:
+- It only processes a single request at a time, so it does not scale;
+- It doesn't send cache headers for static files, so caching by the browser is disabled;
+- It has no support for advanced `mod-rewrite` or `.htaccess` configurations (but see the note above about *virtual URLs*).
 
 ## Installation
 
@@ -62,7 +65,7 @@ Type `php-server` in your terminal, on any directory, to display the list of ava
 
 ```
 NAME
-    php-server -- an enhanced interface for the PHP's built-in web server
+    php-server -- makes the PHP's built-in web server easier and more practical to use
 
 SYNTAX
     php-server command [options]
@@ -106,9 +109,9 @@ If you run `php-server start -g`, it will make available all sites that are inst
 
 ### Permanent web server
 
-You may configure your operating system to launch `php-server` on global mode on the system's bootup process, after you login. That way, you'll get a nice replacement for a local Apache or nginx that is always ready to server your local websites.
+You may configure your operating system to launch `php-server` on global mode on the system's bootup process, after you log in. That way, you'll get a nice replacement for a local *Apache* or *NGINX* that is always ready to server your local websites.
 
-> Instructions on how to auto-start `php-server` on login are beyond the scope of this Readme.
+> Instructions on how to auto-start `php-server` on login are beyond the scope of this Readme. Just configure PHP-Server as you would any other auto-starting application; the way to do it depends on your operating system.
 
 ### The directory indexes
 

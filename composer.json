@@ -1,7 +1,7 @@
 {
   "name": "php-kit/php-server",
   "license": "MIT",
-  "description": "An enhanced interface for PHP's built-in web server",
+  "description": "Makes the PHP's built-in web server easier and more practical to use",
   "keywords": [
     "server",
     "web server",

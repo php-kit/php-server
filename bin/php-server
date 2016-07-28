@@ -218,7 +218,7 @@ PID: ${HILIGHT}$pid$C"
   "--help"|"")
   printf "
 ${B}NAME$C
-    ${B}$self$C -- an enhanced interface for PHP's built-in web server
+    ${B}$self$C -- makes the PHP's built-in web server easier and more practical to use
 "
     syntax
     ;;
