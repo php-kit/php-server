@@ -179,7 +179,8 @@ case "$command" in
     fi
     [ "$log" == "/dev/null" ] && logMsg="${COMMENT}disabled$C" || logMsg="${HILIGHT}$log$C"
     where="$address:$port"
-    pid=$(runBackgroundCommand "php -S $where -t $dir $ROUTER_FILE" $log)
+    options='-d variables_order=EGPCS'
+    pid=$(runBackgroundCommand "php -S $where -t $dir $options $ROUTER_FILE" $log)
     echo $pid > $PID_FILE
 
     finish "The server is now ${HILIGHT}running$C
