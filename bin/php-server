@@ -34,6 +34,9 @@ self="$(basename $0)"
 PID_FILE="/tmp/$self.pid"
 BASE_DIR="$(dirname "$(getCWD)")"
 ROUTER_FILE="$BASE_DIR/src/devServerRouter.php"
+plist="$HOME/Library/LaunchAgents/php-server.plist"
+php="php"
+log="$HOME/.php-server.log"
 
 syntax()
 {
@@ -46,28 +49,42 @@ ${B}COMMAND$C
     ${HILIGHT}${B}start$C - Starts the web server.
 
         ${B}SYNTAX$C
-            ${B}$self start$C [${B}-p$C|${B}--port$C] [${B}-a$C|${B}--address$C] [${B}-l$C|${B}--log$C] [${B}-g$C|${B}--global$C] [${B}-r$C|${B}--root$C]
+            ${B}$self start$C [${B}-p$C|${B}--port$C] [${B}-a$C|${B}--address$C] [${B}-l$C|${B}--log$C] [${B}-g$C|${B}--global$C] [${B}-r$C|${B}--root$C] [${B}-f$C|${B}--foreground$C] [${B}-x$C|${B}--executable$C]
 
         ${B}OPTIONS$C
-            ${B}-p, --port     ${C}The TCP/IP port the web server will listen on. $INFO[default: 8000]$C
-            ${B}-a, --address  ${C}The IP address the web server will listen on.  $INFO[default: localhost]$C
-            ${B}-l, --log      ${C}The path of a log file where the server's logging output will be saved. $INFO[default: /dev/null]$C
-            ${B}-g, --global   ${C}If specified, the server will serve all sites under the root web directory.
-            ${B}-r, --root     ${C}The root web directory's name or path. If it's a name, the directory will be searched
-                           for starting at the current directory and going upwards. Alternatively, you may specify the
-                           full path. $INFO[default: Sites]$C
+            ${B}-p, --port       ${C}The TCP/IP port the web server will listen on.
+                             $INFO[default: 8000]$C
+            ${B}-a, --address    ${C}The IP address the web server will listen on.
+                             $INFO[default: localhost]$C
+            ${B}-l, --log        ${C}The path of a log file where the server's logging output will be saved.
+                             Use $INFO/dev/null$C to disable.
+                             $INFO[default: $log]$C
+            ${B}-g, --global     ${C}If specified, the server will serve all sites under the root web directory.
+            ${B}-r, --root       ${C}The root web directory's name or path. If it's a name, the directory will be searched for
+                             starting at the current directory and going upwards. Alternatively, you may specify the
+                             full path.
+                             $INFO[default: Sites]$C
+            ${B}-f, --foreground ${C}Don't run the server as a background process.
+            ${B}-x, --executable ${C}The path to the PHP interpreter.
+                             $INFO[default: searched on \$PATH]$C
 
 ${B}COMMAND$C
     ${HILIGHT}${B}stop$C - Stops the web server.
 
-        ${B}SYNTAX$C
-            ${B}$self stop$C
-
 ${B}COMMAND$C
     ${HILIGHT}${B}status$C - Checks if the web server is running.
 
+${B}COMMAND$C
+    ${HILIGHT}${B}install$C - Installs the server as a system user agent that is auto-started on login.
+              The server runs in $INFO--global$C mode.
+              ${B}This works on Mac OS X only!$C
+
         ${B}SYNTAX$C
-            ${B}$self status$C
+            ${B}$self install$C [${B}-p$C|${B}--port$C] [${B}-a$C|${B}--address$C] [${B}-l$C|${B}--log$C] [${B}-r$C|${B}--root$C]
+
+${B}COMMAND$C
+    ${HILIGHT}${B}uninstall$C - Shuts down and uninstalls a previously installed user agent.
+                ${B}This works on Mac OS X only!$C
 
 "
   exit 1
@@ -98,12 +115,23 @@ ${ERROR}Syntax error!$C"
 
 getPID ()
 {
-  cat $PID_FILE 2>/dev/null
+  if [ -f "$plist" ]; then
+    pid=$(launchctl list | grep php-server | cut -f 1)
+    if [ "$pid" != "-" ]; then
+      echo $pid
+    fi
+  else
+    cat $PID_FILE 2>/dev/null
+  fi
 }
 
 isRunning ()
 {
-  ps "$1" > /dev/null 2>&1
+  if [ -n "$1" ]; then
+    ps "$1" > /dev/null 2>&1
+  else
+    $(exit 1)
+  fi
 }
 
 runBackgroundCommand ()
@@ -118,10 +146,11 @@ case "$command" in
   "start")
     port=8000
     address="localhost"
-    log="/dev/null"
     global=""
     rootWasSet=""
     root="Sites"
+    foreground=""
+    starting_daemon=""
 
     while true; do
       case "$1" in
@@ -148,15 +177,31 @@ case "$command" in
           root=$1
           rootWasSet=true
           ;;
+        --foreground|-f)
+          foreground=true
+          ;;
+        --executable|-x)
+          shift
+          php=$1
+          if [ ! -f "$php" ]; then
+            error "$php ${ERROR}was not found$C"
+          fi
+          ;;
+        -d)
+          starting_daemon=true
+          ;;
         *)
           error "Invalid argument ${ERROR}$1$C"
       esac
       shift
     done
 
-    pid=$(getPID)
-    if isRunning $pid; then
-      error "The server is ${ERROR}already running$C"
+    if [ -z "$starting_daemon" ]; then # only check if process exists when not starting the daemon
+      pid=$(getPID)
+      if isRunning "$pid"; then
+        error "The server is ${ERROR}already running$C
+PID: ${HILIGHT}$pid$C"
+      fi
     fi
     dir=$(pwd)
     if [ -n "$global" ]; then
@@ -180,23 +225,31 @@ case "$command" in
     [ "$log" == "/dev/null" ] && logMsg="${COMMENT}disabled$C" || logMsg="${HILIGHT}$log$C"
     where="$address:$port"
     options='-d variables_order=EGPCS'
-    pid=$(runBackgroundCommand "php -S $where -t $dir $options $ROUTER_FILE" $log)
-    echo $pid > $PID_FILE
 
-    finish "The server is now ${HILIGHT}running$C
+    if [ -n "$foreground" ]; then
+      exec $php -S $where -t $dir $options $ROUTER_FILE
+    else
+      pid=$(runBackgroundCommand "$php -S $where -t $dir $options $ROUTER_FILE" $log)
+      echo $pid > $PID_FILE
+      finish "The server is now ${HILIGHT}running$C
 
 Listening at: ${HILIGHT}$where$C
 Publishing:   ${HILIGHT}$dir$C
 Log file:     ${HILIGHT}$logMsg$C"
+    fi
     ;;
 
   "stop")
+    if [ -f "$plist" ]; then
+      error "The server ${ERROR}can't be stopped$C because it's running as a user agent; use the ${HILIGHT}uninstall$C command instead"
+    fi
     pid=$(getPID)
     if [ -z "$pid" ]; then
       error "The server is ${ERROR}already stopped$C"
     fi
     kill $pid 2>&1
-    unlink $PID_FILE
+    rm -f "$PID_FILE"
+    rm -f "$log"
     finish "The web server is now ${HILIGHT}stopped$C"
     ;;
 
@@ -209,11 +262,104 @@ Log file:     ${HILIGHT}$logMsg$C"
         finish "The server is ${HILIGHT}running$C
 PID: ${HILIGHT}$pid$C"
       else
-        unlink $PID_FILE
+        rm -f $PID_FILE
         finish "The server ${ERROR}crashed$C"
       fi
     fi
+    ;;
 
+  "install")
+    if [ -f "$plist" ]; then
+      error "The user agent is ${ERROR}already installed$C"
+    fi
+    pid=$(getPID)
+    if [ -n "$pid" ]; then
+      echo "
+Shutting down the current server"
+      $0 stop
+    fi
+
+    port=8000
+    address="localhost"
+    root="$HOME/Sites"
+    php=`which php` # capture the current PHP location, as it may be different when running as a user agent
+
+    while true; do
+      case "$1" in
+        '')
+          break;
+          ;;
+        --port|-p)
+          shift
+          port=$1
+          ;;
+        --address|-a)
+          shift
+          address=$1
+          ;;
+        --log|-l)
+          shift
+          log=$1
+          ;;
+        --root|-r)
+          shift
+          root=$1
+          ;;
+        *)
+          error "Invalid argument ${ERROR}$1$C"
+      esac
+      shift
+    done
+
+    echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+   <key>Label</key>
+   <string>php-server</string>
+   <key>Program</key>
+   <string>$HOME/.composer/vendor/bin/php-server</string>
+   <key>ProgramArguments</key>
+   <array>
+      <string>$HOME/.composer/vendor/bin/php-server</string>
+      <string>start</string>
+      <string>-p</string>
+      <string>$port</string>
+      <string>-a</string>
+      <string>$address</string>
+      <string>-r</string>
+      <string>$root</string>
+      <string>-x</string>
+      <string>$php</string>
+      <string>-g</string>
+      <string>-f</string>
+      <string>-d</string>
+   </array>
+   <key>RunAtLoad</key>
+   <true/>
+   <key>StandardOutPath</key>
+   <string>$log</string>
+   <key>StandardErrorPath</key>
+   <string>$log</string>
+</dict>
+</plist>
+" > "$plist" || exit
+    chmod 600 "$plist" || exit
+    launchctl load "$plist" || exit
+    echo -e "
+The user agent is now ${HILIGHT}installed$C and it will auto-start whenever you log in"
+    exec $0 status
+    ;;
+
+  "uninstall")
+    if [ -f "$plist" ]; then
+      launchctl unload "$plist"
+      rm "$plist" || exit
+      rm -f "$log"
+      finish "The user agent is now ${HILIGHT}uninstalled$C"
+    else
+      error "The user agent is ${ERROR}already uninstalled$C"
+    fi
     ;;
 
   "--help"|"")
