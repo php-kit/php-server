@@ -57,8 +57,8 @@ ${B}COMMAND$C
             ${B}-a, --address    ${C}The IP address the web server will listen on.
                              $INFO[default: localhost]$C
             ${B}-l, --log        ${C}The path of a log file where the server's logging output will be saved.
-                             Use $INFO/dev/null$C to disable.
                              $INFO[default: $log]$C
+            ${B}-n, --no-log     ${C}Disable logging.
             ${B}-g, --global     ${C}If specified, the server will serve all sites under the root web directory.
             ${B}-r, --root       ${C}The root web directory's name or path. If it's a name, the directory will be searched for
                              starting at the current directory and going upwards. Alternatively, you may specify the
@@ -187,6 +187,9 @@ case "$command" in
         --log|-l)
           shift
           log=$1
+          ;;
+        --no-log|-n)
+          log=/dev/null
           ;;
         --global|-g)
           global=true
@@ -330,6 +333,9 @@ Shutting down the current server"
         --log|-l)
           shift
           log=$1
+          ;;
+        --no-log|-n)
+          log=/dev/null
           ;;
         --root|-r)
           shift
