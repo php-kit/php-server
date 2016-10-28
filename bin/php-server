@@ -115,13 +115,20 @@ ${ERROR}Syntax error!$C"
 
 getPID ()
 {
+  # Case: server running as a standard process
+  if [ -f "$PID_FILE" ]; then
+    cat $PID_FILE 2>/dev/null
+    return
+  fi
+  # Case: server running as an user agent
   if [ -f "$plist" ]; then
+    # Case: server running as the current user
     pid=$(launchctl list | grep php-server | cut -f 1)
-    if [ "$pid" != "-" ]; then
+    if [ "$pid" != "-" -a "$pid" ]; then
       echo $pid
     fi
-  else
-    cat $PID_FILE 2>/dev/null
+    # Case: server running as root (when port < 1024)
+    launchctl print system/php-server 2>/dev/null | grep -o 'id\s*=.*' | grep -oE '\d+'
   fi
 }
 
@@ -137,6 +144,18 @@ isRunning ()
 runBackgroundCommand ()
 {
   nohup $1 >$2 2>&1 & echo $!
+}
+
+getFileOwner ()
+{
+  stat -f '%Su' $1
+}
+
+requireSudo ()
+{
+  sudo -p "
+Root privileges are required for this operation.
+Your password:" ls > /dev/null || exit
 }
 
 command=$1
@@ -226,16 +245,23 @@ PID: ${HILIGHT}$pid$C"
     where="$address:$port"
     options='-d variables_order=EGPCS'
 
+    # For ports < 1024 sudo is needed, but only if the script isn't being run as root (ex: via lauchd) to prevent process duplication
+    if [ $port -lt 1024 -a $(id -u) -ne 0 ]; then
+      requireSudo
+      php="sudo $php"
+    fi
+
     if [ -n "$foreground" ]; then
       exec $php -S $where -t $dir $options $ROUTER_FILE
     else
       pid=$(runBackgroundCommand "$php -S $where -t $dir $options $ROUTER_FILE" $log)
       echo $pid > $PID_FILE
-      finish "The server is now ${HILIGHT}running$C
-
-Listening at: ${HILIGHT}$where$C
+      $0 status || exit $?
+      # finish() is not used to prevent extra blank line
+      echo -e "Listening at: ${HILIGHT}$where$C
 Publishing:   ${HILIGHT}$dir$C
-Log file:     ${HILIGHT}$logMsg$C"
+Log file:     ${HILIGHT}$logMsg$C
+"
     fi
     ;;
 
@@ -247,7 +273,11 @@ Log file:     ${HILIGHT}$logMsg$C"
     if [ -z "$pid" ]; then
       error "The server is ${ERROR}already stopped$C"
     fi
-    kill $pid 2>&1
+    kill $pid 2>/dev/null
+    if [ $? -eq 1 ]; then
+      requireSudo
+      sudo kill $pid 2>&1 || exit 1
+    fi
     rm -f "$PID_FILE"
     rm -f "$log"
     finish "The web server is now ${HILIGHT}stopped$C"
@@ -263,7 +293,7 @@ Log file:     ${HILIGHT}$logMsg$C"
 PID: ${HILIGHT}$pid$C"
       else
         rm -f $PID_FILE
-        finish "The server ${ERROR}crashed$C"
+        error "The server ${ERROR}crashed$C"
       fi
     fi
     ;;
@@ -276,7 +306,7 @@ PID: ${HILIGHT}$pid$C"
     if [ -n "$pid" ]; then
       echo "
 Shutting down the current server"
-      $0 stop
+      $0 stop || exit $?
     fi
 
     port=8000
@@ -311,14 +341,18 @@ Shutting down the current server"
       shift
     done
 
+    sudo=''
+    if [ $port -lt 1024 ]; then
+      requireSudo
+      sudo='sudo'
+    fi
+
     echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
 <!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
 <plist version=\"1.0\">
 <dict>
    <key>Label</key>
    <string>php-server</string>
-   <key>Program</key>
-   <string>$HOME/.composer/vendor/bin/php-server</string>
    <key>ProgramArguments</key>
    <array>
       <string>$HOME/.composer/vendor/bin/php-server</string>
@@ -343,18 +377,34 @@ Shutting down the current server"
    <string>$log</string>
 </dict>
 </plist>
-" > "$plist" || exit
-    chmod 600 "$plist" || exit
-    launchctl load "$plist" || exit
+" > "$plist" || exit $?
+    chmod 600 "$plist" || exit $?
+    if [ -n "$sudo" ]; then
+      sudo chown root "$plist"
+    fi
+    $sudo launchctl load "$plist" || exit $?
     echo -e "
 The user agent is now ${HILIGHT}installed$C and it will auto-start whenever you log in"
-    exec $0 status
+    $0 status || exit $?
+    [ "$log" == "/dev/null" ] && log="disabled"
+    # finish() is not used to prevent extra blank line
+    echo -e "Listening at: ${HILIGHT}$address:$port$C
+Publishing:   ${HILIGHT}$root$C
+Log file:     ${HILIGHT}$log$C
+"
     ;;
 
   "uninstall")
     if [ -f "$plist" ]; then
-      launchctl unload "$plist"
-      rm "$plist" || exit
+      # Check if the agent runs as root
+      sudo=''
+      owner=$(getFileOwner "$plist")
+      if [ "$owner" == 'root' ]; then
+        requireSudo
+        sudo='sudo'
+      fi
+      $sudo launchctl unload "$plist" || exit $?
+      $sudo rm "$plist" || exit $?
       rm -f "$log"
       finish "The user agent is now ${HILIGHT}uninstalled$C"
     else
