@@ -77,7 +77,7 @@ ${B}COMMAND$C
 ${B}COMMAND$C
     ${HILIGHT}${B}install$C - Installs the server as a system user agent that is auto-started on login.
               The server runs in $INFO--global$C mode.
-              ${B}This works on Mac OS X only!$C
+              ${B}This works on macOS only!$C
 
         ${B}SYNTAX$C
             ${B}$self install$C [${B}-p$C|${B}--port$C] [${B}-a$C|${B}--address$C] [${B}-l$C|${B}--log$C] [${B}-n$C|${B}--no-log$C] [${B}-r$C|${B}--root$C] [${B}-e$C|${B}--env$C]
@@ -90,7 +90,7 @@ ${B}COMMAND$C
 
 ${B}COMMAND$C
     ${HILIGHT}${B}uninstall$C - Shuts down and uninstalls a previously installed user agent.
-                ${B}This works on Mac OS X only!$C
+                ${B}This works on macOS only!$C
 
 "
   exit 1
@@ -449,7 +449,7 @@ Log file:     ${HILIGHT}$log$C
   "--help"|"")
   printf "
 ${B}NAME$C
-    ${B}$self$C -- makes the PHP's built-in web server easier and more practical to use
+    ${B}$self$C -- a lightweight development web server for running PHP web applications
 "
     syntax
     ;;
