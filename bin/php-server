@@ -49,7 +49,7 @@ ${B}COMMAND$C
     ${HILIGHT}${B}start$C - Starts the web server.
 
         ${B}SYNTAX$C
-            ${B}$self start$C [${B}-p$C|${B}--port$C] [${B}-a$C|${B}--address$C] [${B}-l$C|${B}--log$C] [${B}-g$C|${B}--global$C] [${B}-r$C|${B}--root$C] [${B}-f$C|${B}--foreground$C] [${B}-x$C|${B}--executable$C]
+            ${B}$self start$C [${B}-p$C|${B}--port$C] [${B}-a$C|${B}--address$C] [${B}-l$C|${B}--log$C] [${B}-n$C|${B}--no-log$C] [${B}-g$C|${B}--global$C] [${B}-r$C|${B}--root$C] [${B}-f$C|${B}--foreground$C] [${B}-x$C|${B}--executable$C]
 
         ${B}OPTIONS$C
             ${B}-p, --port       ${C}The TCP/IP port the web server will listen on.
@@ -80,7 +80,13 @@ ${B}COMMAND$C
               ${B}This works on Mac OS X only!$C
 
         ${B}SYNTAX$C
-            ${B}$self install$C [${B}-p$C|${B}--port$C] [${B}-a$C|${B}--address$C] [${B}-l$C|${B}--log$C] [${B}-r$C|${B}--root$C]
+            ${B}$self install$C [${B}-p$C|${B}--port$C] [${B}-a$C|${B}--address$C] [${B}-l$C|${B}--log$C] [${B}-n$C|${B}--no-log$C] [${B}-r$C|${B}--root$C] [${B}-e$C|${B}--env$C]
+
+        ${B}OPTIONS$C
+            ${B}-e, --env        ${C}The path to a script that will set environment variables.
+                             This is required if you specify a port < 1024, as the server will run from the root user
+                             account and it will not inherit the current user's environment.
+                             $INFO[default: ~/.profile - if the file exists and port < 1024]$C
 
 ${B}COMMAND$C
     ${HILIGHT}${B}uninstall$C - Shuts down and uninstalls a previously installed user agent.
@@ -124,7 +130,7 @@ getPID ()
   if [ -f "$plist" ]; then
     # Case: server running as the current user
     pid=$(launchctl list | grep php-server | cut -f 1)
-    if [ "$pid" != "-" -a "$pid" ]; then
+    if [ "$pid" != "-" -a "$pid" != "" ]; then
       echo $pid
     fi
     # Case: server running as root (when port < 1024)
@@ -170,6 +176,7 @@ case "$command" in
     root="Sites"
     foreground=""
     starting_daemon=""
+    env="."
 
     while true; do
       case "$1" in
@@ -209,8 +216,14 @@ case "$command" in
             error "$php ${ERROR}was not found$C"
           fi
           ;;
+        # -d is reserved for internal use
         -d)
           starting_daemon=true
+          ;;
+        # -e is reserved for internal use
+        --env|-e)
+          shift
+          env=$1
           ;;
         *)
           error "Invalid argument ${ERROR}$1$C"
@@ -218,7 +231,7 @@ case "$command" in
       shift
     done
 
-    if [ -z "$starting_daemon" ]; then # only check if process exists when not starting the daemon
+    if [ -z "$starting_daemon" ]; then # check if process exists when running normally (i.e. not starting the daemon)
       pid=$(getPID)
       if isRunning "$pid"; then
         error "The server is ${ERROR}already running$C
@@ -247,6 +260,11 @@ PID: ${HILIGHT}$pid$C"
     [ "$log" == "/dev/null" ] && logMsg="${COMMENT}disabled$C" || logMsg="${HILIGHT}$log$C"
     where="$address:$port"
     options='-d variables_order=EGPCS'
+
+    if [ "$env" != "." ]; then
+      # run the script inheriting its variables
+      . $env
+    fi
 
     # For ports < 1024 sudo is needed, but only if the script isn't being run as root (ex: via lauchd) to prevent process duplication
     if [ $port -lt 1024 -a $(id -u) -ne 0 ]; then
@@ -316,6 +334,7 @@ Shutting down the current server"
     address="localhost"
     root="$HOME/Sites"
     php=`which php` # capture the current PHP location, as it may be different when running as a user agent
+    env='.'
 
     while true; do
       case "$1" in
@@ -341,6 +360,10 @@ Shutting down the current server"
           shift
           root=$1
           ;;
+        --env|-e)
+          shift
+          env=$1
+          ;;
         *)
           error "Invalid argument ${ERROR}$1$C"
       esac
@@ -351,6 +374,9 @@ Shutting down the current server"
     if [ $port -lt 1024 ]; then
       requireSudo
       sudo='sudo'
+      if [ "$env" == "." -a -f ~/.profile ]; then
+        env=~/.profile
+      fi
     fi
 
     echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
@@ -374,6 +400,8 @@ Shutting down the current server"
       <string>-g</string>
       <string>-f</string>
       <string>-d</string>
+      <string>-e</string>
+      <string>$env</string>
    </array>
    <key>RunAtLoad</key>
    <true/>
