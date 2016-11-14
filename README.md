@@ -108,6 +108,9 @@ COMMAND
     stop - Stops the web server.
 
 COMMAND
+    restart - Stops the web server and starts it again with the same options as before.
+
+COMMAND
     status - Checks if the web server is running.
 
 COMMAND
@@ -127,6 +130,9 @@ COMMAND
 COMMAND
     uninstall - Shuts down and uninstalls a previously installed user agent.
                 This works on macOS only!
+
+COMMAND
+    self-update - Updates this tool to the latest version.
 ```
 
 ### Local mode
