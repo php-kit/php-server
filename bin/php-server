@@ -97,6 +97,9 @@ ${B}COMMAND$C
     ${HILIGHT}${B}uninstall$C - Shuts down and uninstalls a previously installed user agent.
                 ${B}This works on macOS only!$C
 
+${B}COMMAND$C
+    ${HILIGHT}${B}self-update$C - Updates this tool to the latest version.
+
 "
   exit 1
 }
@@ -528,6 +531,10 @@ Log file:     ${HILIGHT}$log$C
     else
       error "The user agent is ${ERROR}already uninstalled$C"
     fi
+    ;;
+
+  "self-update")
+    composer global update php-kit/php-server
     ;;
 
   "--help"|"")
