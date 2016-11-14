@@ -34,9 +34,11 @@ self="$(basename $0)"
 PID_FILE="/tmp/$self.pid"
 BASE_DIR="$(dirname "$(getCWD)")"
 ROUTER_FILE="$BASE_DIR/src/devServerRouter.php"
-plist="$HOME/Library/LaunchAgents/php-server.plist"
+service_name='php-server'
+plist="$HOME/Library/LaunchAgents/$service_name.plist"
 php="php"
 log="$HOME/.php-server.log"
+options_file="$HOME/.php-server.options"
 
 syntax()
 {
@@ -70,6 +72,9 @@ ${B}COMMAND$C
 
 ${B}COMMAND$C
     ${HILIGHT}${B}stop$C - Stops the web server.
+
+${B}COMMAND$C
+    ${HILIGHT}${B}restart$C - Stops the web server and starts it again with the same options as before.
 
 ${B}COMMAND$C
     ${HILIGHT}${B}status$C - Checks if the web server is running.
@@ -169,6 +174,9 @@ shift
 case "$command" in
 
   "start")
+    echo "
+Starting server..."
+
     port=8000
     address="localhost"
     global=""
@@ -177,6 +185,7 @@ case "$command" in
     foreground=""
     starting_daemon=""
     env="."
+    original_options="$@"
 
     while true; do
       case "$1" in
@@ -231,13 +240,46 @@ case "$command" in
       shift
     done
 
-    if [ -z "$starting_daemon" ]; then # check if process exists when running normally (i.e. not starting the daemon)
+    if [ -z "$starting_daemon" ]; then
+      # Starting as a normal process (not a daemon)
+
+      # Check if the process already exists
       pid=$(getPID)
       if isRunning "$pid"; then
         error "The server is ${ERROR}already running$C
 PID: ${HILIGHT}$pid$C"
       fi
+
+      # If already configured to run as a daemon, start it as such
+      if [ -f "$plist" ]; then
+        if [ -n "$original_options" ]; then
+          error "${ERROR}Not allowed$C
+You can't specify options when the server is configured to run as a daemon/UA
+You'll need to uninstall it first and then run it or install it again with the new options"
+        fi
+        launchctl start $service_name
+        if [ $? -ne 0 ]; then
+          requireSudo
+          sudo launchctl start $service_name
+        fi
+        exec $0 status
+      fi
+
+      if [ -z "$original_options" -a -f "$options_file" ]; then
+        confirm=''
+        while [[ ! $confirm =~ ^[YyNn] ]]; do
+          read -p "Use options from last run? [Y/n] " confirm
+          case "$confirm" in
+            y|Y|"")
+              $0 start $(cat "$options_file")
+              exit $?
+              ;;
+          esac
+        done
+      fi
+
     fi
+
     dir=$(pwd)
     if [ -n "$global" ]; then
       if [ -d "$root" ]; then
@@ -261,15 +303,15 @@ PID: ${HILIGHT}$pid$C"
     where="$address:$port"
     options='-d variables_order=EGPCS'
 
-    if [ "$env" != "." ]; then
-      # run the script inheriting its variables
-      . $env
-    fi
-
     # For ports < 1024 sudo is needed, but only if the script isn't being run as root (ex: via lauchd) to prevent process duplication
     if [ $port -lt 1024 -a $(id -u) -ne 0 ]; then
       requireSudo
-      php="sudo $php"
+      php="sudo -E $php"
+    fi
+    if [ "$env" != "." ]; then
+      # run the script inheriting its variables
+      #. $env
+      env
     fi
 
     if [ -n "$foreground" ]; then
@@ -283,40 +325,82 @@ PID: ${HILIGHT}$pid$C"
 Publishing:   ${HILIGHT}$dir$C
 Log file:     ${HILIGHT}$logMsg$C
 "
+      echo "$original_options" > ~/.php-server.options
     fi
     ;;
 
   "stop")
+    echo "
+Stopping server..."
+    # If running as a daemon, stop it as such
     if [ -f "$plist" ]; then
-      error "The server ${ERROR}can't be stopped$C because it's running as a user agent; use the ${HILIGHT}uninstall$C command instead"
+      launchctl stop $service_name
+      if [ $? -ne 0 ]; then
+        requireSudo
+        sudo launchctl stop $service_name
+      fi
+      exec $0 status
     fi
+
     pid=$(getPID)
     if [ -z "$pid" ]; then
       error "The server is ${ERROR}already stopped$C"
     fi
+    msg="The web server is now ${HILIGHT}stopped$C"
     kill $pid 2>/dev/null
     if [ $? -eq 1 ]; then
       requireSudo
-      sudo kill $pid 2>&1 || exit 1
+      sudo kill $pid 2>/dev/null
+      if [ $? -eq 1 ]; then
+        msg="${ERROR}The server was not running$C"
+      fi
     fi
     rm -f "$PID_FILE"
     rm -f "$log"
-    finish "The web server is now ${HILIGHT}stopped$C"
+    rm -f "$options_file"
+    finish "$msg"
     ;;
 
   "status")
+    mode=""
+    if [ -f "$plist" ]; then
+      mode="
+Mode: ${HILIGHT}daemon/UA$C"
+    fi
     pid=$(getPID)
     if [ -z "$pid" ]; then
-      error "The server is ${ERROR}not running$C"
+      error "The server is ${HILIGHT}stopped$C $mode"
     else
       if isRunning $pid; then
         finish "The server is ${HILIGHT}running$C
-PID: ${HILIGHT}$pid$C"
+PID:  ${HILIGHT}$pid$C $mode"
       else
         rm -f $PID_FILE
         error "The server ${ERROR}crashed$C"
       fi
     fi
+    ;;
+
+  "restart")
+    # If running as a daemon, restart it as such
+    if [ -f "$plist" ]; then
+      ($0 stop || exit $?)
+       exec $0 start
+    fi
+
+    if [ -f "$options_file" ]; then
+      options="$(cat "$options_file")"
+      pid=$(getPID)
+      if [ -n "$pid" ]; then
+        $0 stop || exit $?
+      fi
+      echo "Restarting..."
+      $0 start $options
+    else
+      error "Sorry, there is no record of the previous command-line options.
+Please run ${HILIGHT}$(basename $0) start [options]$C now."
+    fi
+    exit $?
     ;;
 
   "install")
