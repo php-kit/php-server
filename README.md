@@ -8,7 +8,7 @@
 Since version 5.4, PHP provides a built-in web server that can be quite useful as a lighweight and dead-easy-to-install **development web server**.
 With it, you do not have to install and configure *Apache*, *NGINX* or any other web server on your machine, just to be able to view local static websites or PHP web sites/applications.
 
-With **PHP-Server**, that embedded server becomes even more practical and simpler to use, making it a suitable replacement of a "real" web server, capable enough for most of your PHP development needs. 
+With **PHP-Server**, that embedded server becomes even more practical and simpler to use, making it a suitable replacement of a "real" web server, capable enough for most of your PHP development needs.
 
 ### Features
 
@@ -23,13 +23,13 @@ This tool:
 0. Extends the server's functionality with:
 
     1. A custom router that:
-    
+
         1. Auto-generates directory index pages for URLs that match directories having no `index.php` or `index.html` files, allowing you to browse your directory structure in search of sites to open.
-         
+
         0. Supports "virtual URLs" (aka "clean URLs" or "vanity URLs") by automatically redirecting virtual paths to the application's `index.php`, where it can be further routed.
 
     0. Access to your environment variables from PHP scripts
- 
+
 ### Limitations
 
 Do not use this on a production server, as `php-server` lacks many of the advanced functionality and security other web servers provide.
@@ -45,6 +45,33 @@ Some of the (show-stopper) limitations are:
 
 - PHP >= 5.4
 - [Composer](https://getcomposer.org)
+- BASH command line shell
+
+#### Operating system compatibility
+
+- Mac OS X (preferred)
+- Linux
+- Windows via *Git BASH* or *Cygwin*
+
+##### About Windows compatibility
+
+Although this tool is installed via Composer, a big part of it is written in BASH, so you
+need BASH to run it.
+
+BASH is not available natively on Windows and **cmd.exe** (the Windows terminal) is not compatible.
+
+One workaround is to install **Git for Windows**, which provides **Git BASH**, and run
+this tool with it.
+
+Another way is to install [Cygwin](https://www.cygwin.com/), wich provides a port to Windows of many Unix utilities, including BASH.
+
+##### Warning
+
+This is not well tested on windows, as on our company we all use Macs and Windows is not a priority for us.
+
+Nevertheless, it would be nice if it worked on windows too, so we welcome your feedback.
+
+
 
 #### Installation
 
