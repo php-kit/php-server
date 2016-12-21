@@ -149,15 +149,21 @@ getPID ()
 isRunning ()
 {
   if [ -n "$1" ]; then
-    ps "$1" > /dev/null 2>&1
+    kill -0 $1 > /dev/null 2>&1
   else
     $(exit 1)
   fi
 }
 
+onWindows ()
+{
+  [ -n "$WINDIR" ]
+  return $?
+}
+
 runBackgroundCommand ()
 {
-  nohup $1 >$2 2>&1 & echo $!
+  nohup $1 > $2 2>&1 & echo $!
 }
 
 getFileOwner ()
@@ -303,6 +309,12 @@ You'll need to uninstall it first and then run it or install it again with the n
       fi
     fi
     [ "$log" == "/dev/null" ] && logMsg="${COMMENT}disabled$C" || logMsg="${HILIGHT}$log$C"
+    if onWindows; then
+      if [ "$log" != "/dev/null" ]; then
+        logMsg="${COMMENT}not available on Windows$C"
+        log=/dev/null
+      fi
+    fi
     where="$address:$port"
     options='-d variables_order=EGPCS'
 
