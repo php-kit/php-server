@@ -51,7 +51,7 @@ Some of the (show-stopper) limitations are:
 
 - Mac OS X (preferred)
 - Linux
-- Windows via *Git BASH* or *Cygwin*
+- Windows via *Git BASH*, *MSYS2* or *Cygwin*
 
 ##### About Windows compatibility
 
@@ -63,15 +63,8 @@ BASH is not available natively on Windows and **cmd.exe** (the Windows terminal)
 One workaround is to install **Git for Windows**, which provides **Git BASH**, and run
 this tool with it.
 
-Another way is to install [Cygwin](https://www.cygwin.com/), wich provides a port to Windows of many Unix utilities, including BASH.
-
-##### Warning
-
-This is not well tested on windows, as on our company we all use Macs and Windows is not a priority for us.
-
-Nevertheless, it would be nice if it worked on windows too, so we welcome your feedback.
-
-
+Another way is to install [MSYS2](https://msys2.github.io) or [Cygwin](https://www.cygwin.com);
+both provide a port to Windows of many Unix utilities, including BASH.
 
 #### Installation
 
@@ -120,7 +113,7 @@ COMMAND
             -a, --address    The IP address the web server will listen on.
                              [default: localhost]
             -l, --log        The path of a log file where the server's logging output will be saved.
-                             [default: /Users/claudio/.php-server.log]
+                             [default: ~/.php-server.log]
             -n, --no-log     Disable logging.
             -g, --global     If specified, the server will serve all sites under the root web directory.
             -r, --root       The root web directory's name or path. If it's a name, the directory will be searched for
