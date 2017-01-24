@@ -85,7 +85,9 @@ composer global require php-kit/php-server
 
 That's it!
 
-> **Tip:** make sure your `$PATH` environment variable includes `~/.composer/bin`, otherwise the terminal won't be able to find executable files that are installed globally by Composer, such as this one.
+> **Tip:** make sure your `$PATH` environment variable includes `~/.composer/vendor/bin`, otherwise the terminal won't be able to find executable files that are installed globally by Composer, such as this one.
+
+> You may edit your path on `~/.profile`, `~/.bash_profile` or `~/.bashrc`; use the first that exists on your machine.
 
 ## Usage
 
